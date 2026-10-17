@@ -74,6 +74,28 @@ Capability and effort:
 
 In short: for clients (TCP, UDP, DNS, HTTP, HTTPS) Ak matches Python's features on the cases tested and is close to C in raw speed on the benchmarks above; it falls behind Python and C on servers (UDP bind, TLS server, WebSocket), on timeouts and on non-blocking I/O.
 
+### File sizes
+Source (bytes, the same four benchmarks; Ak is one file per benchmark, Python and C one file for all four):
+
+| | Ak | Python | C |
+|---|---:|---:|---:|
+| source, all four benchmarks | 1,094 (273 + 272 + 229 + 320) | 1,294 | 2,672 |
+| lines | 23 | 29 | 41 |
+
+Built program (`ak build x.aklang out` vs `gcc -O2`; one Ak executable per benchmark, one C executable holding all four):
+
+| | size | needs at run time |
+|---|---:|---|
+| Ak executable, TCP/UDP benchmarks | about 902 KB each | nothing (static, no libc, runtime and GC included) |
+| Ak executable with `lib/http` and TLS | 1.4 MB | nothing |
+| C, dynamically linked | 17 KB | glibc and the dynamic loader |
+| C, stripped | 14 KB | glibc |
+| C, `-static -s` | 743 KB | nothing (glibc linked in) |
+| Python | 1.3 KB script | the Python interpreter: 6.5 MB binary plus its standard library |
+| `ak` compiler itself | 4.9 MB | nothing |
+
+So Ak source is the shortest, and a built Ak program is about as large as a statically linked C program and runs on a bare Linux kernel, while Python needs its interpreter installed. Dynamically linked C is the smallest because the C library is not in the file. Sizes from the container this was written in (Ak 0.6.0, gcc 13.3, Python 3.13).
+
 ## Layout
 ```
 run.sh               runs everything
