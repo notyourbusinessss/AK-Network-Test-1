@@ -1,0 +1,14 @@
+; DNS against a local fake nameserver (AK_DNS=127.0.0.1:port): A records, several addresses, NXDOMAIN, hosts file, dotted IPv4 passthrough, unreachable nameserver.
+(use "t.aklang" as t)
+(t.check "one A record" (dns "one.test")==["192.0.2.1"])
+(t.check "three A records in order" (dns "multi.test")==["192.0.2.1" "192.0.2.2" "192.0.2.3"])
+r=(try (dns "missing.test") e=>(++ "error: " e))
+(t.check "NXDOMAIN raises 'cannot resolve'" (starts r "error: cannot resolve"))
+(t.check "localhost comes from /etc/hosts" (has (dns "localhost") "127.0.0.1"))
+(t.check "a dotted IPv4 address resolves to itself" (dns "10.1.2.3")==["10.1.2.3"])
+; tcpc resolves names through the same path
+l=(tcpl 0 "127.0.0.1")
+c=(tcpc "localhost" (tcpp l))
+(t.check "tcpc connects by name" (isnum c))
+(fdc c) (fdc l)
+(t.done)

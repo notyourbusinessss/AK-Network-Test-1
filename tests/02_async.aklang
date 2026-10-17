@@ -1,0 +1,30 @@
+; Concurrency: a server with one task per connection and 50 clients in one process (lib/async), then channels. (A big transfer between tasks of one process deadlocks: fdw blocks the whole process; see README.)
+(use "../lib/async.aklang" as a)
+(use "t.aklang" as t)
+l=(tcpl 0 "127.0.0.1")
+port=(tcpp l)
+handle fd =
+ (a.wait fd)
+ (fdw fd (up (fdr fd)))
+ (fdc fd)
+(a.spawn ()=>(for 50 (a.wait l) (a.spawn handle (tcpa l))))
+replies=[]
+client i =
+ c=(tcpc "127.0.0.1" port)
+ (fdw c (++ "hello " i))
+ (a.wait c)
+ (push replies (fdr c))
+ (fdc c)
+(for i 50 (a.spawn client i))
+a.run()
+(t.check "50 concurrent clients all get an answer" #replies==50)
+(t.check "answers are the right ones" (has replies "HELLO 49"))
+(fdc l)
+; channels between tasks
+ch=a.chan()
+out=[]
+(a.spawn ()=>(: (for i 5 (a.send ch i)) (a.close ch)))
+(a.spawn ()=>(: v=(a.recv ch) (wh v!=nil (push out v) v=(a.recv ch))))
+a.run()
+(t.check "channel delivers in order" out==[0 1 2 3 4])
+(t.done)

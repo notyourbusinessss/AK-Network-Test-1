@@ -1,0 +1,26 @@
+; HTTP/1.1 test server written in Ak: ak fixtures/httpd.aklang portfile
+; /  /echo/x  /json  /redirect (302 -> /echo/redirected)  /chunked  /big (2 MB)  /slow (never answers)  /status/N  POST /post (echoes the body, upper-cased)
+(= (resp c code reason type body) (fdw c (++ "HTTP/1.1 " code " " reason "\r\nContent-Type: " type "\r\nContent-Length: " #body "\r\nConnection: close\r\n\r\n" body)))
+(= (serve c)
+  rq="" (wh (! (has rq "\r\n\r\n")) d=(fdr c) (? d=="" rq+="\r\n\r\n" rq+=d))
+  head=rq[..(idx rq "\r\n\r\n")]
+  line=(split (split head "\r\n")[0] " ") meth=line[0] path=line[1]
+  clen=(?? (fst (~? h=>(starts (lo h) "content-length:") (split head "\r\n"))) "")
+  n=(? clen!="" (num (trim (split clen ":")[1])) 0)
+  body=rq[(+ 4 (idx rq "\r\n\r\n"))..]
+  (wh #body<n d=(fdr c) body+=d)
+  (? path=="/" (resp c 200 "OK" "text/plain" "hello from Ak")
+     (starts path "/echo/") (resp c 200 "OK" "text/plain" path[6..])
+     path=="/json" (resp c 200 "OK" "application/json" (json {:ok true :n 42}))
+     path=="/redirect" (fdw c "HTTP/1.1 302 Found\r\nLocation: /echo/redirected\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+     path=="/chunked" (fdw c "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n5\r\nhello\r\n6\r\n world\r\n0\r\n\r\n")
+     path=="/big" (resp c 200 "OK" "application/octet-stream" (rpt "0123456789abcdef" 131072))
+     path=="/trunc" (fdw c "HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\nshort")
+     path=="/slow" (sleep 30000)
+     (starts path "/status/") (resp c (num path[8..]) "Status" "text/plain" "status")
+     (&& meth=="POST" path=="/post") (resp c 200 "OK" "text/plain" (up body))
+     (resp c 404 "Not Found" "text/plain" "not found"))
+  (fdc c))
+l=(tcpl 0 "127.0.0.1")
+(wr (fst (args)) (tostr (tcpp l)))
+(wh true (serve (tcpa l)))
