@@ -55,7 +55,7 @@ Same four benchmarks written in all three (`bench/`; run `AK=ak bench/run.sh`; n
 | `udp_rtt`: 20,000 UDP round trips to a Python echo server | 1.241 | 1.267 | 1.159 |
 | `http_get`: 500 sequential GETs against the Ak test server (`lib/http` / `http.client` / hand-written C) | 0.053 | 0.093 | 0.054 |
 
-Read it with care: `tcp_stream`, `udp_rtt` and `http_get` are limited by the server (a Python script or Ak's own single-threaded server), so they mostly show that Ak's client is not the bottleneck, not that Ak is faster than C. `tcp_pingpong` has no outside server and is the fairest speed test: Ak is about 2x Python and 2.5x C there (each call goes through Ak's runtime). One run on a shared container; expect noise of tens of percent.
+Read it with care: `tcp_stream`, `udp_rtt` and `http_get` are limited by the server (a Python script or Ak's own single-threaded server), so they mostly show that Ak's client is not the bottleneck, not that Ak is faster than C. `tcp_pingpong` has no outside server and is the fairest speed test: Ak is about 2x Python and 2.5x C there. Cause (measured): `(fdr s)` allocates a 64 KB buffer on every call, which triggers 781 garbage collections in the run; the system calls are identical to C's (`strace -c`: 100,000 sends and 100,000 reads in both). With `(fdr s 1)` Ak takes 0.35 s, level with Python (0.36) and close to C (0.30): issue #104. One run on a shared container; expect noise of tens of percent.
 
 Capability and effort:
 
