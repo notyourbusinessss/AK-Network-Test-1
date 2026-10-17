@@ -1,0 +1,5 @@
+; 20000 UDP round trips to the echo fixture: usage ak udp_rtt.aklang port
+port=(num (fst (args))) u=(udp)
+t0=(clock)
+(for 20000 (udpto u "127.0.0.1" port "ping") (udpfrom u 100 1000))
+(p "udp_rtt" (fmt "%.3f" ((clock)-t0)/1000))

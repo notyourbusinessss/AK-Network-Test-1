@@ -36,19 +36,49 @@ Found while writing the tests. Issue numbers are in `notyourbusinessss/AI-coding
 | DNS over TCP, DNS cache | UDP only, no cache | #56 |
 | `sock.bind()` on UDP, `recvfrom` returns the sender | UDP client only; `udpfrom` returns just the data | #100 |
 | WebSocket (`websockets`) | none | #60 |
-| TLS server (`ssl.wrap_socket(server_side=True)`) | TLS 1.3 client only; the HTTPS fixture is Node | not filed |
-| TLS 1.2, client certificates, ALPN/HTTP/2 | not supported | not filed |
-| `select`/non-blocking sockets, `SO_REUSEADDR` etc. | blocking only; `fdw` of a large buffer blocks the whole process, so a client and a server that exchange megabytes in **one** process deadlock (test 02 therefore only does small messages; big transfers are tested across processes in 05 and 06) | not filed |
+| TLS server (`ssl.wrap_socket(server_side=True)`) | TLS 1.3 client only; the HTTPS fixture is Node | #101 |
+| TLS 1.2, client certificates, ALPN/HTTP/2 | not supported | #102 |
+| `select`/non-blocking sockets, `SO_REUSEADDR` etc. | blocking only; `fdw` of a large buffer blocks the whole process, so a client and a server that exchange megabytes in **one** process deadlock (test 02 therefore only does small messages; big transfers are tested across processes in 05 and 06) | #103 |
 | UDP to a bad host | `(udpto u "not an ip" ..)` is silently ignored | #100 |
 | Unix socket server | only `unixc` (client) | #60 |
 | any socket call on the JS target | raises `sockets are native only` (by design) | #59, closed |
 
 Bug found: `(lo s)` raises `chr: invalid code point` when `s` is not valid UTF-8 (a crash in the test HTTP server when a TLS client hit it): #99.
 
+## Ak vs Python vs C
+Same four benchmarks written in all three (`bench/`; run `AK=ak bench/run.sh`; needs `gcc`). Seconds, best of 3, one 4-core Linux container, loopback only, Ak 0.6.0, Python 3.13.16, gcc 13.3 `-O2`:
+
+| benchmark | Ak | Python | C |
+|---|---:|---:|---:|
+| `tcp_pingpong`: 50,000 one-byte round trips, client and server in one process | 0.740 | 0.359 | 0.299 |
+| `tcp_stream`: read 256 MB from a Python server | 0.158 | 0.212 | 0.196 |
+| `udp_rtt`: 20,000 UDP round trips to a Python echo server | 1.241 | 1.267 | 1.159 |
+| `http_get`: 500 sequential GETs against the Ak test server (`lib/http` / `http.client` / hand-written C) | 0.053 | 0.093 | 0.054 |
+
+Read it with care: `tcp_stream`, `udp_rtt` and `http_get` are limited by the server (a Python script or Ak's own single-threaded server), so they mostly show that Ak's client is not the bottleneck, not that Ak is faster than C. `tcp_pingpong` has no outside server and is the fairest speed test: Ak is about 2x Python and 2.5x C there (each call goes through Ak's runtime). One run on a shared container; expect noise of tens of percent.
+
+Capability and effort:
+
+| | Ak 0.6.0 | Python 3 | C (POSIX) |
+|---|---|---|---|
+| TCP client/server, UDP client, DNS (A records) | built in | `socket` | `socket`, `getaddrinfo` |
+| UDP server (bind), IPv6, DNS over TCP | no (#100, #56) | yes | yes |
+| Read/write timeouts | `fdwait` only (#57) | `settimeout` | `SO_RCVTIMEO`, `poll` |
+| Non-blocking / many sockets | `fdwait` + `lib/async` tasks; `fdw` blocks (#103) | `select`, `asyncio`, threads | `poll`, `epoll`, threads |
+| HTTP/HTTPS client | `lib/http` (verified TLS 1.3, redirects, chunked) | `urllib`, `http.client` (+ `requests`) | needs libcurl or hand-written; HTTPS needs OpenSSL |
+| TLS | 1.3 client only (#101, #102) | TLS 1.2/1.3, client and server | OpenSSL/GnuTLS |
+| WebSocket | no (#60) | `websockets` | libraries |
+| Dependencies | none (single static binary, TLS and DNS written in Ak) | stdlib; `requests` etc. extra | libc; TLS needs a library |
+| Size of the four benchmarks (lines) | 23 in total (5-6 each) | 29 | 41 |
+| Memory safety | yes (GC, bounds-checked) | yes | no |
+
+In short: for clients (TCP, UDP, DNS, HTTP, HTTPS) Ak matches Python's features on the cases tested and is close to C in raw speed on the benchmarks above; it falls behind Python and C on servers (UDP bind, TLS server, WebSocket), on timeouts and on non-blocking I/O.
+
 ## Layout
 ```
 run.sh               runs everything
 tests/               the Ak programs (t.aklang is the check helper)
-fixtures/            udp_echo.py (UDP echo + fake DNS), httpd.aklang (HTTP server in Ak), tls_server.js (HTTPS)
+bench/                the same benchmarks in Ak, Python (py.py) and C (c/bench.c); run.sh prints the table
+fixtures/            stream.py (256 MB sender), udp_echo.py (UDP echo + fake DNS), httpd.aklang (HTTP server in Ak), tls_server.js (HTTPS)
 lib/                 copy of Ak's http, tls, crypto, pki, async libraries (Apache-2.0, see LICENSE-Ak)
 ```

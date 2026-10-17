@@ -1,0 +1,6 @@
+; read 256 MB from a TCP server (fixtures/stream.py): usage ak tcp_stream.aklang port
+c=(tcpc "127.0.0.1" (num (fst (args))))
+t0=(clock) got=0 d=nil
+(wh d!="" d=(fdr c 1048576) got+=#d)
+(? got!=268435456 (err "short read"))
+(p "tcp_stream" (fmt "%.3f" ((clock)-t0)/1000))

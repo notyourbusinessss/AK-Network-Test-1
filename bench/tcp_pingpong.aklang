@@ -1,0 +1,6 @@
+; 50000 one-byte round trips over a loopback TCP connection, client and server in one process.
+
+l=(tcpl 0 "127.0.0.1") c=(tcpc "127.0.0.1" (tcpp l)) s=(tcpa l)
+t0=(clock)
+(for 50000 (fdw c "x") (fdr s) (fdw s "y") (fdr c))
+(p "tcp_pingpong" (fmt "%.3f" ((clock)-t0)/1000))
