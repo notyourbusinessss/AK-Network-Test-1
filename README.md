@@ -10,7 +10,9 @@ git clone --recurse-submodules https://github.com/notyourbusinessss/AK-Network-T
 cd AK-Network-Test-1 && ./run.sh     # uses ak/bin/ak; run `git submodule update --init` if ak/ is empty
 AK=/path/to/other/ak ./run.sh        # test another Ak build
 ```
-To move to a newer Ak: `git -C ak fetch && git -C ak checkout <commit> && git add ak`.
+To move to a newer Ak: `git -C ak fetch && git -C ak checkout <commit> && git add ak`, and put the same commit hash in `package.json`.
+
+`package.json` declares the same Ak commit as a dependency so that GitHub's dependency graph lists it (a git submodule alone does not show up there). The tests use the submodule in `ak/`; `package.json` is not used to run anything and `npm install` is not needed.
 Needs Linux x86-64, `python3`, `node` and `openssl` (for the fixtures). `run.sh` starts the fixtures on loopback ports, runs `tests/*.aklang`, and prints `ok` or `FAIL` per check and a summary. A test file that finds nothing to run fails.
 
 | test | what it checks | Python equivalent |

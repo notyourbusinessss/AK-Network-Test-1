@@ -1,0 +1,14 @@
+{
+  "name": "ak-network-test-1",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Network tests and benchmarks for the Ak programming language",
+  "license": "Apache-2.0",
+  "scripts": {
+    "test": "./run.sh",
+    "bench": "bench/run.sh"
+  },
+  "dependencies": {
+    "aklang": "github:notyourbusinessss/AI-codinglanguage-#84261ebcd86d1ce856bb286b0046521e88648d6c"
+  }
+}
