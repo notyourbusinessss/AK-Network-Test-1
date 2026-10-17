@@ -1,6 +1,6 @@
 ; HTTPS and TLS 1.3 against a local Node TLS server with a throw-away CA (the only trust root given to Ak): success, big body, wrong name, untrusted CA, TLS 1.2-only server.
-(use "../lib/http.aklang" as h)
-(use "../lib/pki.aklang" as k)
+(use "../ak/lib/http.aklang" as h)
+(use "../ak/lib/pki.aklang" as k)
 (use "t.aklang" as t)
 roots=(~ x=>(k.cert_parse x) (k.pem_certs (rd (env "CA_PEM"))))
 other=(~ x=>(k.cert_parse x) (k.pem_certs (rd (env "OTHER_PEM"))))

@@ -1,5 +1,5 @@
 ; 500 sequential HTTP GETs of /echo/hello with lib/http against the Ak test server: usage ak http_get.aklang port
-(use "../lib/http.aklang" as h)
+(use "../ak/lib/http.aklang" as h)
 url=(++ "http://127.0.0.1:" (fst (args)) "/echo/hello")
 t0=(clock)
 (for 500 r=(h.get url) (? r.body!="hello" (err "bad body")))

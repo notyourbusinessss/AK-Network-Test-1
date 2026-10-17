@@ -1,7 +1,7 @@
 #!/bin/sh
 # Runs the same four network benchmarks in Ak, Python and C and prints a table (seconds, best of 3). usage: AK=ak bench/run.sh
-AK=${AK:-ak}
 cd "$(dirname "$0")/.." || exit 1
+AK=${AK:-$PWD/ak/bin/ak}
 T=$(mktemp -d); trap 'kill $(jobs -p) 2>/dev/null; rm -rf "$T"' EXIT
 gcc -O2 -o "$T/bench" bench/c/bench.c || exit 1
 python3 fixtures/udp_echo.py "$T/udp" & python3 fixtures/stream.py "$T/stream" & $AK fixtures/httpd.aklang "$T/http" &

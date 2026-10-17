@@ -2,12 +2,15 @@
 
 A network test suite written in [Ak](https://github.com/notyourbusinessss/AI-codinglanguage-): the things a typical Python networking demo does (TCP client/server, UDP, DNS, HTTP, HTTPS, concurrency, timeouts), each run against Ak and checked.
 
-**Tested with Ak 0.6.0** (`ak --version`), `AI-codinglanguage-` main at commit `1713fd9`. `lib/` is a copy of that commit's `lib/` (http, tls, crypto, pki, async), so the tests use `lib/` here and need only the `ak` binary.
+**Dependency:** Ak is a git submodule in `ak/`, pinned to `AI-codinglanguage-` main at `84261eb` (Ak 0.6.22). The tests use `ak/bin/ak` and `ak/lib/` (http, tls, crypto, pki, async). Results below were measured with Ak 0.6.0 (`1713fd9`); the test suite was re-run on 0.6.22 and passes the same way (8/8 files, 55 checks). The benchmark table was not re-measured.
 
 ## Run it
 ```
-AK=/path/to/ak ./run.sh        # AK defaults to `ak` on PATH
+git clone --recurse-submodules https://github.com/notyourbusinessss/AK-Network-Test-1
+cd AK-Network-Test-1 && ./run.sh     # uses ak/bin/ak; run `git submodule update --init` if ak/ is empty
+AK=/path/to/other/ak ./run.sh        # test another Ak build
 ```
+To move to a newer Ak: `git -C ak fetch && git -C ak checkout <commit> && git add ak`.
 Needs Linux x86-64, `python3`, `node` and `openssl` (for the fixtures). `run.sh` starts the fixtures on loopback ports, runs `tests/*.aklang`, and prints `ok` or `FAIL` per check and a summary. A test file that finds nothing to run fails.
 
 | test | what it checks | Python equivalent |
@@ -46,7 +49,7 @@ Found while writing the tests. Issue numbers are in `notyourbusinessss/AI-coding
 Bug found: `(lo s)` raises `chr: invalid code point` when `s` is not valid UTF-8 (a crash in the test HTTP server when a TLS client hit it): #99.
 
 ## Ak vs Python vs C
-Same four benchmarks written in all three (`bench/`; run `AK=ak bench/run.sh`; needs `gcc`). Seconds, best of 3, one 4-core Linux container, loopback only, Ak 0.6.0, Python 3.13.16, gcc 13.3 `-O2`:
+Same four benchmarks written in all three (`bench/`; run `bench/run.sh`; needs `gcc`). Seconds, best of 3, one 4-core Linux container, loopback only, Ak 0.6.0, Python 3.13.16, gcc 13.3 `-O2`:
 
 | benchmark | Ak | Python | C |
 |---|---:|---:|---:|
@@ -102,5 +105,5 @@ run.sh               runs everything
 tests/               the Ak programs (t.aklang is the check helper)
 bench/                the same benchmarks in Ak, Python (py.py) and C (c/bench.c); run.sh prints the table
 fixtures/            stream.py (256 MB sender), udp_echo.py (UDP echo + fake DNS), httpd.aklang (HTTP server in Ak), tls_server.js (HTTPS)
-lib/                 copy of Ak's http, tls, crypto, pki, async libraries (Apache-2.0, see LICENSE-Ak)
+ak/                  git submodule: the Ak repository (compiler binary bin/ak and lib/), pinned
 ```

@@ -1,7 +1,8 @@
 #!/bin/sh
-# Runs every test in tests/ against the Ak binary in $AK (default: ak on PATH). Starts the fixtures, runs the tests, stops the fixtures.
-AK=${AK:-ak}
+# Runs every test in tests/ against the Ak binary in $AK (default: ak/bin/ak, the pinned submodule). Starts the fixtures, runs the tests, stops the fixtures.
 cd "$(dirname "$0")" || exit 1
+AK=${AK:-$PWD/ak/bin/ak}
+[ -x "$AK" ] || git submodule update --init ak >&2
 T=$(mktemp -d); trap 'kill $(jobs -p) 2>/dev/null; rm -rf "$T"' EXIT
 echo "Ak: $($AK --version)"
 python3 fixtures/udp_echo.py "$T/udp" & $AK fixtures/httpd.aklang "$T/http" & $AK fixtures/httpd.aklang "$T/slow" &

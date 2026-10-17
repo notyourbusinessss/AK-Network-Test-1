@@ -1,5 +1,5 @@
 ; Public internet: real DNS, HTTP and HTTPS with the system CA bundle. Prints SKIP (exit 0) when there is no direct network access.
-(use "../lib/http.aklang" as h)
+(use "../ak/lib/http.aklang" as h)
 (use "t.aklang" as t)
 addrs=(try (dns "example.com") e=>nil)
 (? addrs==nil (: (p "SKIP no DNS / no direct internet from this machine") (exit 0)))

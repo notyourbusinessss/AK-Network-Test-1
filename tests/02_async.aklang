@@ -1,5 +1,5 @@
 ; Concurrency: a server with one task per connection and 50 clients in one process (lib/async), then channels. (A big transfer between tasks of one process deadlocks: fdw blocks the whole process; see README.)
-(use "../lib/async.aklang" as a)
+(use "../ak/lib/async.aklang" as a)
 (use "t.aklang" as t)
 l=(tcpl 0 "127.0.0.1")
 port=(tcpp l)

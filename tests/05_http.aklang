@@ -1,5 +1,5 @@
 ; HTTP client (lib/http) against an Ak-written HTTP/1.1 server: GET, POST, JSON, redirects, chunked, 2 MB body, status codes, headers, custom headers, errors.
-(use "../lib/http.aklang" as h)
+(use "../ak/lib/http.aklang" as h)
 (use "t.aklang" as t)
 base=(++ "http://127.0.0.1:" (env "HTTP_PORT"))
 r=(h.get (++ base "/"))
