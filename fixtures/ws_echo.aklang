@@ -1,0 +1,14 @@
+; WebSocket echo server: ak fixtures/ws_echo.aklang portfile -- echoes text and binary messages, "close" closes with 1000; one connection at a time.
+(use "../ak/lib/ws.aklang" as w)
+l=(tcpl 0 "127.0.0.1")
+(wr (fst (args)) (tostr (tcpp l)))
+(wh true
+  fd=(tcpa l)
+  (try (: ws=(w.accept (w.fdstream fd))
+          (? ws
+             (: m=(w.recv ws)
+                (wh (!= m nil)
+                  (? (== m "close") (: (w.close ws 1000 "bye") m=nil)
+                     (: (? ws.bin (w.sendb ws m) (w.send ws m)) m=(w.recv ws)))))))
+       e=>nil)
+  (try (fdc fd) e=>nil))

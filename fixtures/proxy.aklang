@@ -1,0 +1,32 @@
+; CONNECT proxy written in Ak: ak fixtures/proxy.aklang tls|plain cert.pem key.pem portfile logfile
+; tls = an https:// proxy (TLS to the proxy), plain = an http:// proxy. CONNECT host:port is tunnelled after "200"; any other request is answered "proxied <request line>".
+; Appends one line per request to logfile: "CONNECT host:port" or "GET <target>". One connection at a time (a tunnel ends when either side closes or is silent for 20 s).
+(use "../ak/lib/tls.aklang" as t)
+[mode cert key portfile log]=(args)
+cr=(? (== mode "tls") (t.creds {:cert (rd cert) :key (rd key)}) nil)
+l=(tcpl 0 "127.0.0.1")
+(wr portfile (tostr (tcpp l)))
+(= (note s) (app log (++ s "\n")))
+(= (rdhead rd)                          ; bytes up to the blank line
+  buf="" (wh (! (has buf "\r\n\r\n")) d=(rd) (? d=="" (raise "io" "closed" nil)) buf+=d) buf)
+(= (serve rd wr rfd buffered)           ; rd: ()=>bytes, wr: s=>nil, rfd: the fd to wait on for client bytes, buffered: ()=>true when rd has bytes already (TLS records read ahead)
+  line=(split (rdhead rd) "\r\n")[0] f=(split line " ")
+  (? (== f[0] "CONNECT")
+     (: hp=(split f[1] ":") up=(tcpc hp[0] (num hp[1])) (note (++ "CONNECT " f[1]))
+        (wr "HTTP/1.1 200 Connection established\r\n\r\n")
+        done=false
+        (wh (! done)
+          ready=(? (buffered) [rfd] (fdwait [rfd up] 20000))
+          (? (== #ready 0) done=true)
+          (? (has ready rfd) (: d=(rd) (? d=="" done=true (fdw up d))))
+          (? (has ready up) (: d=(fdr up 65536) (? d=="" done=true (wr d)))))
+        (fdc up))
+     (: b=(++ "proxied " line) (note (++ "GET " f[1]))
+        (wr (++ "HTTP/1.1 200 OK\r\nContent-Length: " #b "\r\nConnection: close\r\n\r\n" b)))))
+(wh true
+  fd=(tcpa l)
+  (try (? cr
+          (: cn=(t.accept fd cr)
+             (try (serve (\ () (t.read cn 65536)) (\ (s) (t.write cn s)) (t.fd cn) (\ () #cn.inbuf>0)) e=>nil)
+             (try (t.close cn) e=>nil))
+          (: (try (serve (\ () (fdr fd 65536)) (\ (s) (fdw fd s)) fd (\ () false)) e=>nil) (fdc fd))) e=>nil))

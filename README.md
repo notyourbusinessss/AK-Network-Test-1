@@ -2,7 +2,7 @@
 
 A network test suite written in [Ak](https://github.com/notyourbusinessss/AI-codinglanguage-): the things a typical Python networking demo does (TCP client/server, UDP, DNS, HTTP, HTTPS, concurrency, timeouts), each run against Ak and checked.
 
-**Dependency:** Ak is a git submodule in `ak/`, pinned to `AI-codinglanguage-` main at `6347680` (Ak 0.7.31). The tests use `ak/bin/ak` and `ak/lib/` (http, tls, crypto, pki, async). The test results are from Ak 0.7.31. The benchmark tables were measured with Ak 0.6.0 and not re-measured.
+**Dependency:** Ak is a git submodule in `ak/`, pinned to `AI-codinglanguage-` main at `408dc9d` (Ak 0.7.35). The tests use `ak/bin/ak` and `ak/lib/` (http, tls, crypto, pki, async). The test results are from Ak 0.7.35. The benchmark tables were measured with Ak 0.6.0 and not re-measured.
 
 ## Run it
 ```
@@ -13,6 +13,7 @@ AK=/path/to/other/ak ./run.sh        # test another Ak build
 To move to a newer Ak: `git -C ak fetch && git -C ak checkout <commit> && git add ak`, and put the same commit hash in `package.json`.
 
 `package.json` declares the same Ak commit as a dependency so that GitHub's dependency graph lists it (a git submodule alone does not show up there). The tests use the submodule in `ak/`; `package.json` is not used to run anything and `npm install` is not needed.
+`TESTS='12_*' ./run.sh` runs only the matching test files. `.github/workflows/test.yml` runs the whole suite on GitHub Actions (internet and IPv6 available there, so `08_public` and `10_ipv6` run for real).
 Needs Linux x86-64, `python3`, `node` and `openssl` (for the fixtures). `run.sh` starts the fixtures on loopback ports, runs `tests/*.aklang`, and prints `ok` or `FAIL` per check and a summary. A test file that finds nothing to run fails.
 
 | test | what it checks | Python equivalent |
@@ -28,9 +29,13 @@ Needs Linux x86-64, `python3`, `node` and `openssl` (for the fixtures). `run.sh`
 | `09_tls_server` | Ak as a TLS server (`fixtures/tls_ak.aklang`) and its client: SNI, ALPN (pick, no overlap), client certificates (required, missing, accepted), TLS 1.3 session resumption, TLS 1.2 tickets and resumption against Node | `ssl.wrap_socket(server_side=True)`, `SSLContext.set_alpn_protocols`, `load_verify_locations`, `session=` |
 | `10_ipv6` | TCP and UDP over `::1`, a `::` listener that also takes IPv4, IPv6 literal in `dns`. Skips (and checks the clean error) when the machine has no IPv6 loopback | `AF_INET6` |
 | `11_http_extras` | `lib/http` connection reuse (`:pool`), `:gzip` (gzip and deflate), proxies (`:proxy`, credentials), against a Python keep-alive server | `requests.Session`, `Accept-Encoding`, `proxies=` |
+| `12_https_proxy` | `https://` proxy written in Ak (`fixtures/proxy.aklang tls`): TLS to the proxy, `CONNECT`, TLS to the target inside the tunnel, 1 MB body, absolute-URI request for an `http://` target, proxy and target certificates verified | `requests` with `proxies={"https": "https://..."}` |
+| `13_httpd_tls` | `lib/httpd` serving https (`{:tls {:cert :key}}`, `req.sni`), POST, keep-alive, wrong name, untrusted CA, plain http to the TLS port, server survives failed handshakes | `http.server` + `ssl.wrap_socket` |
+| `14_websocket_proxy` | `lib/ws` against an Ak echo server: text, binary, 100 KB, close code, and the same through an `http://` proxy with `CONNECT` | `websockets` (with a proxy) |
+| `15_http2` | `{:h2 true}` against Node's http2 server: GET, headers, 200 KB POST over the flow-control window, 3 MB reply, redirect, HEAD, fallback to HTTP/1.1, through the https proxy, host name check | `httpx` with `http2=True` |
 
-## Results (Ak 0.7.31)
-`./run.sh`: **11/11 test files pass, 82 checks ok, 0 failed** in the Linux container this was written in. `08_public` printed **SKIP** (no direct internet there, only an HTTPS proxy that the test cannot use) and `10_ipv6` printed **SKIP** (no IPv6 loopback), so real DNS, public HTTPS, the system CA bundle and the IPv6 paths are **not verified** here. Run `./run.sh` on a machine with internet and IPv6 to exercise them.
+## Results (Ak 0.7.35)
+`./run.sh`: **15/15 test files pass** in the Linux container this was written in (three runs in a row). `08_public` printed **SKIP** (no direct internet there, only an HTTPS proxy that the test cannot use) and `10_ipv6` printed **SKIP** (no IPv6 loopback), so real DNS, public HTTPS, the system CA bundle and the IPv6 paths are **not verified** here. Run `./run.sh` on a machine with internet and IPv6 to exercise them.
 
 Not tested: HTTPS through a proxy (`CONNECT` tunnel), reverse-DNS PTR queries over the network (only the hosts file), HTTP/2, TLS 1.3 0-RTT, SNI-selected certificates.
 
@@ -39,7 +44,7 @@ Not tested: HTTPS through a proxy (`CONNECT` tunnel), reverse-DNS PTR queries ov
 ## What Ak could not do in 0.6.0 and does now
 Found while writing the first version of these tests. Issue numbers are in `notyourbusinessss/AI-codinglanguage-`.
 
-| Python | Ak 0.6.0 | Ak 0.7.31 |
+| Python | Ak 0.6.0 | Ak 0.7.35 |
 |---|---|---|
 | `sock.settimeout(s)` | `fdr`/`fdw` block forever (#57) | `ms` argument on `fdr`, `fdw`, `fdline`, `fdreadn`; `:rms` / `:wms` in `lib/http` (`07_timeouts` still tests `fdwait`) |
 | IPv6, AAAA | IPv4 only (#56) | TCP, UDP, `dns` (A and AAAA, over TCP when truncated, TTL cache), `[::1]` URLs |
@@ -50,12 +55,13 @@ Found while writing the first version of these tests. Issue numbers are in `noty
 | non-blocking I/O, `SO_REUSEADDR` | blocking only (#103) | `fdwp`, `fdpoll`, `sockopt` (`reuseaddr`, `nodelay` ...), `shutw`/`shutr` |
 | Unix socket server | client only | `unixl` |
 | `Session` connection reuse, `Accept-Encoding: gzip` | none | `{:pool}`, `{:gzip}` |
-| proxy environment, `socket.gethostbyaddr`, resolv.conf `search` | none | `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY`, `rdns`, search domains |
+| proxy environment, `socket.gethostbyaddr`, resolv.conf `search` | none | `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY`, `http://` and `https://` proxies, WebSocket through proxies, `rdns`, search domains |
+| HTTP/2 (`httpx`, `hyper`), HTTPS server | none | `{:h2 true}` client, `lib/httpd` over TLS |
 | UDP to a bad host | silently ignored (#100) | an io error |
 
 Bug found with the first version: `(lo s)` raised `chr: invalid code point` when `s` is not valid UTF-8 (#99).
 
-Still missing compared with Python: HTTP/2, a TLS 1.2 server, `lib/httpd` over TLS, HTTPS proxies (TLS over TLS), TLS 1.1 and older.
+Still missing compared with Python: an HTTP/2 server, a TLS 1.2 server, TLS 1.1 and older.
 
 ## Ak vs Python vs C
 This section is from the first version of the suite (Ak 0.6.0); the capability table below is out of date where it says "no" for features listed above. Same four benchmarks written in all three (`bench/`; run `bench/run.sh`; needs `gcc`). Seconds, best of 3, one 4-core Linux container, loopback only, Ak 0.6.0, Python 3.13.16, gcc 13.3 `-O2`:
@@ -113,6 +119,6 @@ So Ak source is the shortest, and a built Ak program is about as large as a stat
 run.sh               runs everything
 tests/               the Ak programs (t.aklang is the check helper)
 bench/                the same benchmarks in Ak, Python (py.py) and C (c/bench.c); run.sh prints the table
-fixtures/            stream.py (256 MB sender), udp_echo.py (UDP echo + fake DNS), httpd.aklang (HTTP server in Ak), tls_server.js (HTTPS, Node), tls_ak.aklang (TLS server in Ak), web.py (keep-alive, gzip and proxy server)
+fixtures/            stream.py (256 MB sender), udp_echo.py (UDP echo + fake DNS), httpd.aklang (HTTP server in Ak), tls_server.js (HTTPS, Node), tls_ak.aklang (TLS server in Ak), web.py (keep-alive, gzip and proxy server), proxy.aklang (http:// and https:// CONNECT proxy), httpd_tls.aklang, ws_echo.aklang, h2_server.js (HTTP/2)
 ak/                  git submodule: the Ak repository (compiler binary bin/ak and lib/), pinned
 ```
