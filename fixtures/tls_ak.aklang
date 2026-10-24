@@ -1,0 +1,12 @@
+; TLS server written in Ak (lib/tls server side): ak fixtures/tls_ak.aklang cert.pem key.pem portfile alpn|- clientca.pem|-
+; replies "hello sni=<name> alpn=<protocol> peer=<yes|no>" to anything it reads, one connection at a time, forever.
+(use "../ak/lib/tls.aklang" as t)
+[cert key portfile alpn ca]=(args)
+cr=(t.creds {:cert (rd cert) :key (rd key) :alpn (? (!= alpn "-") (split alpn ",") nil) :clientca (? (!= ca "-") (rd ca) nil)})
+l=(tcpl 0 "127.0.0.1")
+(wr portfile (tostr (tcpp l)))
+(wh true
+  fd=(tcpa l)
+  (try (: cn=(t.accept fd cr) (t.read cn)
+          (t.write cn (++ "hello sni=" (?? cn.sni "-") " alpn=" (?? cn.alpn "-") " peer=" (? cn.peer "yes" "no") (? cn.resumed " resumed" "")))
+          (t.close cn)) e=>nil))

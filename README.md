@@ -2,7 +2,7 @@
 
 A network test suite written in [Ak](https://github.com/notyourbusinessss/AI-codinglanguage-): the things a typical Python networking demo does (TCP client/server, UDP, DNS, HTTP, HTTPS, concurrency, timeouts), each run against Ak and checked.
 
-**Dependency:** Ak is a git submodule in `ak/`, pinned to `AI-codinglanguage-` main at `84261eb` (Ak 0.6.22). The tests use `ak/bin/ak` and `ak/lib/` (http, tls, crypto, pki, async). Results below were measured with Ak 0.6.0 (`1713fd9`); the test suite was re-run on 0.6.22 and passes the same way (8/8 files, 55 checks). The benchmark table was not re-measured.
+**Dependency:** Ak is a git submodule in `ak/`, pinned to `AI-codinglanguage-` main at `6347680` (Ak 0.7.31). The tests use `ak/bin/ak` and `ak/lib/` (http, tls, crypto, pki, async). The test results are from Ak 0.7.31. The benchmark tables were measured with Ak 0.6.0 and not re-measured.
 
 ## Run it
 ```
@@ -20,38 +20,45 @@ Needs Linux x86-64, `python3`, `node` and `openssl` (for the fixtures). `run.sh`
 | `01_tcp` | listen on port 0, connect, accept, request/reply, 1000 byte write, close detection, all 256 byte values, connection refused, connect timeout | `socket`, `connect`, `accept`, `recv`, `settimeout` on connect |
 | `02_async` | one task per connection, 50 concurrent clients, channels | `asyncio` / `threading` echo server |
 | `03_udp` | UDP client vs echo server: round trips, datagram boundaries, empty and 60000 byte datagrams, NUL bytes, truncation to `n`, receive timeout | `SOCK_DGRAM`, `sendto`, `recvfrom` |
-| `04_dns` | A records (one and several), NXDOMAIN, `/etc/hosts`, IPv4 literal, connect by name; fake nameserver via `AK_DNS` | `socket.gethostbyname_ex`, `getaddrinfo` |
+| `04_dns` | A records (one and several), NXDOMAIN, `/etc/hosts`, IPv4 literal, connect by name, `search` domains from resolv.conf (`AK_RESOLV`), reverse DNS; fake nameserver via `AK_DNS` | `socket.gethostbyname_ex`, `getaddrinfo` |
 | `05_http` | `lib/http` against an HTTP server written in Ak: GET, POST, JSON, query string, custom headers, 302 redirect, chunked, 2 MB body, 404/503, truncated body, refused, bad scheme, bad host | `urllib.request`, `http.client`, `requests` |
-| `06_https` | `lib/http` + `lib/tls` against a local Node TLS 1.3 server with a throw-away CA: success, 1 MB body, wrong host name, untrusted CA, TLS 1.2-only server | `ssl`, `urllib` over HTTPS |
+| `06_https` | `lib/http` + `lib/tls` against a local Node TLS server with a throw-away CA: success, 1 MB body, wrong host name, untrusted CA, TLS 1.2-only server (works since Ak 0.7) | `ssl`, `urllib` over HTTPS |
 | `07_timeouts` | `fdwait` as read timeout, closed peer, silent server | `settimeout`, `select` |
 | `08_public` | real DNS, HTTP, HTTPS (example.com, google.com), bad certificates (badssl.com) | the same against the real internet |
+| `09_tls_server` | Ak as a TLS server (`fixtures/tls_ak.aklang`) and its client: SNI, ALPN (pick, no overlap), client certificates (required, missing, accepted), TLS 1.3 session resumption, TLS 1.2 tickets and resumption against Node | `ssl.wrap_socket(server_side=True)`, `SSLContext.set_alpn_protocols`, `load_verify_locations`, `session=` |
+| `10_ipv6` | TCP and UDP over `::1`, a `::` listener that also takes IPv4, IPv6 literal in `dns`. Skips (and checks the clean error) when the machine has no IPv6 loopback | `AF_INET6` |
+| `11_http_extras` | `lib/http` connection reuse (`:pool`), `:gzip` (gzip and deflate), proxies (`:proxy`, credentials), against a Python keep-alive server | `requests.Session`, `Accept-Encoding`, `proxies=` |
 
-## Results (Ak 0.6.0)
-`./run.sh`: **8/8 test files pass, 55 checks ok, 0 failed**, in the Linux container this was written in.
+## Results (Ak 0.7.31)
+`./run.sh`: **11/11 test files pass, 82 checks ok, 0 failed** in the Linux container this was written in. `08_public` printed **SKIP** (no direct internet there, only an HTTPS proxy that the test cannot use) and `10_ipv6` printed **SKIP** (no IPv6 loopback), so real DNS, public HTTPS, the system CA bundle and the IPv6 paths are **not verified** here. Run `./run.sh` on a machine with internet and IPv6 to exercise them.
 
-`08_public` printed **SKIP**: that container has no direct internet (only an HTTPS proxy, which Ak cannot use), so real DNS, public HTTPS and the system CA bundle are **not verified**. Run `./run.sh` on a machine with internet to exercise them.
+Not tested: HTTPS through a proxy (`CONNECT` tunnel), reverse-DNS PTR queries over the network (only the hosts file), HTTP/2, TLS 1.3 0-RTT, SNI-selected certificates.
 
-## What Ak cannot do yet that Python can
-Found while writing the tests. Issue numbers are in `notyourbusinessss/AI-codinglanguage-`.
+**Fixed in this suite:** the checks never failed the test files. Since Ak 0.6.x a function of a namespace with no arguments has to be called as `t.done()`; `(t.done)` only names the function, so every test file exited 0 whatever its checks said. `tests/*.aklang` now call `t.done()`.
 
-| Python | Ak 0.6.0 | issue |
+## What Ak could not do in 0.6.0 and does now
+Found while writing the first version of these tests. Issue numbers are in `notyourbusinessss/AI-codinglanguage-`.
+
+| Python | Ak 0.6.0 | Ak 0.7.31 |
 |---|---|---|
-| `sock.settimeout(s)` on read/write | `fdr`/`fdw` block forever; use `fdwait` before `fdr` (test 07). `lib/http` and `lib/tls` have only a connect timeout (`:ms`), so a server that accepts and never answers hangs a request, and an `https://` URL on a plain HTTP port hangs the handshake | #57 |
-| IPv6 (`AF_INET6`, AAAA) | IPv4 only | #56 |
-| DNS over TCP, DNS cache | UDP only, no cache | #56 |
-| `sock.bind()` on UDP, `recvfrom` returns the sender | UDP client only; `udpfrom` returns just the data | #100 |
-| WebSocket (`websockets`) | none | #60 |
-| TLS server (`ssl.wrap_socket(server_side=True)`) | TLS 1.3 client only; the HTTPS fixture is Node | #101 |
-| TLS 1.2, client certificates, ALPN/HTTP/2 | not supported | #102 |
-| `select`/non-blocking sockets, `SO_REUSEADDR` etc. | blocking only; `fdw` of a large buffer blocks the whole process, so a client and a server that exchange megabytes in **one** process deadlock (test 02 therefore only does small messages; big transfers are tested across processes in 05 and 06) | #103 |
-| UDP to a bad host | `(udpto u "not an ip" ..)` is silently ignored | #100 |
-| Unix socket server | only `unixc` (client) | #60 |
-| any socket call on the JS target | raises `sockets are native only` (by design) | #59, closed |
+| `sock.settimeout(s)` | `fdr`/`fdw` block forever (#57) | `ms` argument on `fdr`, `fdw`, `fdline`, `fdreadn`; `:rms` / `:wms` in `lib/http` (`07_timeouts` still tests `fdwait`) |
+| IPv6, AAAA | IPv4 only (#56) | TCP, UDP, `dns` (A and AAAA, over TCP when truncated, TTL cache), `[::1]` URLs |
+| `bind()` and `recvfrom` on UDP | client only (#100) | `udpl`, `udpfrom2` |
+| WebSocket | none (#60) | `lib/ws` |
+| TLS server | TLS 1.3 client only (#101) | `t.creds` / `t.accept`, SNI certificates, ALPN, client CA |
+| TLS 1.2, client certificates, ALPN | not supported (#102) | TLS 1.2 client, client certificates, ALPN, session tickets and resumption |
+| non-blocking I/O, `SO_REUSEADDR` | blocking only (#103) | `fdwp`, `fdpoll`, `sockopt` (`reuseaddr`, `nodelay` ...), `shutw`/`shutr` |
+| Unix socket server | client only | `unixl` |
+| `Session` connection reuse, `Accept-Encoding: gzip` | none | `{:pool}`, `{:gzip}` |
+| proxy environment, `socket.gethostbyaddr`, resolv.conf `search` | none | `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY`, `rdns`, search domains |
+| UDP to a bad host | silently ignored (#100) | an io error |
 
-Bug found: `(lo s)` raises `chr: invalid code point` when `s` is not valid UTF-8 (a crash in the test HTTP server when a TLS client hit it): #99.
+Bug found with the first version: `(lo s)` raised `chr: invalid code point` when `s` is not valid UTF-8 (#99).
+
+Still missing compared with Python: HTTP/2, a TLS 1.2 server, `lib/httpd` over TLS, HTTPS proxies (TLS over TLS), TLS 1.1 and older.
 
 ## Ak vs Python vs C
-Same four benchmarks written in all three (`bench/`; run `bench/run.sh`; needs `gcc`). Seconds, best of 3, one 4-core Linux container, loopback only, Ak 0.6.0, Python 3.13.16, gcc 13.3 `-O2`:
+This section is from the first version of the suite (Ak 0.6.0); the capability table below is out of date where it says "no" for features listed above. Same four benchmarks written in all three (`bench/`; run `bench/run.sh`; needs `gcc`). Seconds, best of 3, one 4-core Linux container, loopback only, Ak 0.6.0, Python 3.13.16, gcc 13.3 `-O2`:
 
 | benchmark | Ak | Python | C |
 |---|---:|---:|---:|
@@ -106,6 +113,6 @@ So Ak source is the shortest, and a built Ak program is about as large as a stat
 run.sh               runs everything
 tests/               the Ak programs (t.aklang is the check helper)
 bench/                the same benchmarks in Ak, Python (py.py) and C (c/bench.c); run.sh prints the table
-fixtures/            stream.py (256 MB sender), udp_echo.py (UDP echo + fake DNS), httpd.aklang (HTTP server in Ak), tls_server.js (HTTPS)
+fixtures/            stream.py (256 MB sender), udp_echo.py (UDP echo + fake DNS), httpd.aklang (HTTP server in Ak), tls_server.js (HTTPS, Node), tls_ak.aklang (TLS server in Ak), web.py (keep-alive, gzip and proxy server)
 ak/                  git submodule: the Ak repository (compiler binary bin/ak and lib/), pinned
 ```

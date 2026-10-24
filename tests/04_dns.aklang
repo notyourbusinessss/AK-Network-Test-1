@@ -6,9 +6,14 @@ r=(try (dns "missing.test") e=>(++ "error: " e))
 (t.check "NXDOMAIN raises 'cannot resolve'" (starts r "error: cannot resolve"))
 (t.check "localhost comes from /etc/hosts" (has (dns "localhost") "127.0.0.1"))
 (t.check "a dotted IPv4 address resolves to itself" (dns "10.1.2.3")==["10.1.2.3"])
+; search domains from resolv.conf (AK_RESOLV: "search lab.test", ndots:2): the short name "db" is tried as db.lab.test
+(t.check "short name resolves through the search domain" (dns "db")==["192.0.2.60"])
+(t.check "a name with a trailing dot is absolute" (starts (try (dns "db.") e=>e) "cannot resolve"))
+; reverse DNS: 127.0.0.1 comes from the hosts file
+(t.check "rdns of 127.0.0.1 lists localhost" (has (rdns "127.0.0.1") "localhost"))
 ; tcpc resolves names through the same path
 l=(tcpl 0 "127.0.0.1")
 c=(tcpc "localhost" (tcpp l))
 (t.check "tcpc connects by name" (isnum c))
 (fdc c) (fdc l)
-(t.done)
+t.done()

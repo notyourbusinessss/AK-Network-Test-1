@@ -31,4 +31,4 @@ t0=(clock)
 r=(try (: (tcpc "10.255.255.1" 81 300) "connected") e=>"error")
 dt=(clock)-t0
 (t.check "connect to an unroutable address fails within the timeout" (&& r=="error" dt<3000))
-(t.done)
+t.done()
