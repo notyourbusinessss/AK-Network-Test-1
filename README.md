@@ -30,7 +30,7 @@ Needs Linux x86-64, `python3`, `node` and `openssl` (for the fixtures). `run.sh`
 | `11_http_extras` | `lib/http` connection reuse (`:pool`), `:gzip` (gzip and deflate), proxies (`:proxy`, credentials), against a Python keep-alive server | `requests.Session`, `Accept-Encoding`, `proxies=` |
 
 ## Results (Ak 0.7.31)
-`./run.sh`: **11/11 test files pass** in the Linux container this was written in. `08_public` printed **SKIP** (no direct internet there, only an HTTPS proxy that the test cannot use) and `10_ipv6` printed **SKIP** (no IPv6 loopback), so real DNS, public HTTPS, the system CA bundle and the IPv6 paths are **not verified** here. Run `./run.sh` on a machine with internet and IPv6 to exercise them.
+`./run.sh`: **11/11 test files pass, 82 checks ok, 0 failed** in the Linux container this was written in. `08_public` printed **SKIP** (no direct internet there, only an HTTPS proxy that the test cannot use) and `10_ipv6` printed **SKIP** (no IPv6 loopback), so real DNS, public HTTPS, the system CA bundle and the IPv6 paths are **not verified** here. Run `./run.sh` on a machine with internet and IPv6 to exercise them.
 
 Not tested: HTTPS through a proxy (`CONNECT` tunnel), reverse-DNS PTR queries over the network (only the hosts file), HTTP/2, TLS 1.3 0-RTT, SNI-selected certificates.
 
