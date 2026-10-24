@@ -1,4 +1,4 @@
-; Tiny check helper: (t.check "name" cond) prints "ok name" or "FAIL name"; (t.done) exits 1 if anything failed.
+; Tiny check helper: (t.check "name" cond) prints "ok name" or "FAIL name"; t.done() exits 1 if anything failed.
 fails=[0]
 (= (check name cond) (? cond (p "ok  " name) (: (p "FAIL" name) fails[0]+=1)))
 (= (done) (exit (? fails[0]>0 1 0)))

@@ -27,4 +27,4 @@ out=[]
 (a.spawn ()=>(: v=(a.recv ch) (wh v!=nil (push out v) v=(a.recv ch))))
 a.run()
 (t.check "channel delivers in order" out==[0 1 2 3 4])
-(t.done)
+t.done()

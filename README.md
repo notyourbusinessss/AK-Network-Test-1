@@ -2,7 +2,7 @@
 
 A network test suite written in [Ak](https://github.com/notyourbusinessss/AI-codinglanguage-): the things a typical Python networking demo does (TCP client/server, UDP, DNS, HTTP, HTTPS, concurrency, timeouts), each run against Ak and checked.
 
-**Dependency:** Ak is a git submodule in `ak/`, pinned to `AI-codinglanguage-` main at `84261eb` (Ak 0.6.22). The tests use `ak/bin/ak` and `ak/lib/` (http, tls, crypto, pki, async). Results below were measured with Ak 0.6.0 (`1713fd9`); the test suite was re-run on 0.6.22 and passes the same way (8/8 files, 55 checks). The benchmark table was not re-measured.
+**Dependency:** Ak is a git submodule in `ak/`, pinned to `AI-codinglanguage-` main at `6347680` (Ak 0.7.31). The tests use `ak/bin/ak` and `ak/lib/` (http, tls, crypto, pki, async). The suite passes on 0.7.31 (8/8 files, 55 checks). The benchmark and file-size tables below were measured with Ak 0.6.0 and not re-measured.
 
 ## Run it
 ```
@@ -26,29 +26,30 @@ Needs Linux x86-64, `python3`, `node` and `openssl` (for the fixtures). `run.sh`
 | `07_timeouts` | `fdwait` as read timeout, closed peer, silent server | `settimeout`, `select` |
 | `08_public` | real DNS, HTTP, HTTPS (example.com, google.com), bad certificates (badssl.com) | the same against the real internet |
 
-## Results (Ak 0.6.0)
-`./run.sh`: **8/8 test files pass, 55 checks ok, 0 failed**, in the Linux container this was written in.
+## Results (Ak 0.7.31)
+`./run.sh`: **8/8 test files pass, 55 checks ok, 0 failed**, in a Linux container.
+
+Since 0.6.0 one check changed meaning: Ak now has a TLS 1.2 client, so `06_https` checks that the TLS 1.2-only server is reached (it used to check that it was rejected). Test files now end with `t.done()`: the old `(t.done)` is a field access that returns the function without calling it, so a failing check still gave exit 0 on 0.7.x.
 
 `08_public` printed **SKIP**: that container has no direct internet (only an HTTPS proxy, which Ak cannot use), so real DNS, public HTTPS and the system CA bundle are **not verified**. Run `./run.sh` on a machine with internet to exercise them.
 
-## What Ak cannot do yet that Python can
-Found while writing the tests. Issue numbers are in `notyourbusinessss/AI-codinglanguage-`.
+## What Ak could not do in 0.6.0, and where it stands in 0.7.31
+Found while writing the tests against Ak 0.6.0. Issue numbers are in `notyourbusinessss/AI-codinglanguage-`. The "now" column comes from Ak's SPEC-extra.md and docs/libraries.md for 0.7.31; only the rows marked *tested here* are exercised by this suite, the others are not re-tested.
 
-| Python | Ak 0.6.0 | issue |
+| Python | Ak 0.6.0 | Ak 0.7.31 |
 |---|---|---|
-| `sock.settimeout(s)` on read/write | `fdr`/`fdw` block forever; use `fdwait` before `fdr` (test 07). `lib/http` and `lib/tls` have only a connect timeout (`:ms`), so a server that accepts and never answers hangs a request, and an `https://` URL on a plain HTTP port hangs the handshake | #57 |
-| IPv6 (`AF_INET6`, AAAA) | IPv4 only | #56 |
-| DNS over TCP, DNS cache | UDP only, no cache | #56 |
-| `sock.bind()` on UDP, `recvfrom` returns the sender | UDP client only; `udpfrom` returns just the data | #100 |
-| WebSocket (`websockets`) | none | #60 |
-| TLS server (`ssl.wrap_socket(server_side=True)`) | TLS 1.3 client only; the HTTPS fixture is Node | #101 |
-| TLS 1.2, client certificates, ALPN/HTTP/2 | not supported | #102 |
-| `select`/non-blocking sockets, `SO_REUSEADDR` etc. | blocking only; `fdw` of a large buffer blocks the whole process, so a client and a server that exchange megabytes in **one** process deadlock (test 02 therefore only does small messages; big transfers are tested across processes in 05 and 06) | #103 |
-| UDP to a bad host | `(udpto u "not an ip" ..)` is silently ignored | #100 |
-| Unix socket server | only `unixc` (client) | #60 |
-| any socket call on the JS target | raises `sockets are native only` (by design) | #59, closed |
+| `sock.settimeout(s)` | `fdr`/`fdw` blocked forever (#57) | `(fdr fd n ms)`, `(fdw fd s ms)`, `fdline`, `fdreadn` take a timeout; `fdwait` still works (*tested here*, test 07) |
+| IPv6, AAAA | IPv4 only (#56) | TCP and UDP over IPv6, A and AAAA records |
+| DNS over TCP, DNS cache | UDP only, no cache | TCP retry on truncation, in-process cache by TTL |
+| UDP `bind` and `recvfrom` with the sender | client only (#100) | `udpl`, `udpfrom2` |
+| WebSocket | none (#60) | `lib/ws.aklang` |
+| TLS server | none (#101) | TLS 1.3 server in `lib/tls.aklang`, certificate by SNI |
+| TLS 1.2, client certificates, ALPN | none (#102) | all three (TLS 1.2 client *tested here*, test 06) |
+| `SO_REUSEADDR` etc. | none (#103) | `sockopt` |
+| Unix socket server | client only | `unixl` |
+| UDP to a bad host | silently ignored | io error |
 
-Bug found: `(lo s)` raises `chr: invalid code point` when `s` is not valid UTF-8 (a crash in the test HTTP server when a TLS client hit it): #99.
+Bug found in 0.6.0 and not re-checked: `(lo s)` raised `chr: invalid code point` when `s` was not valid UTF-8 (#99). Not fixed in this suite: a client and a server exchanging megabytes **in one process** can still deadlock on a blocking `fdw` of a large buffer, so test 02 keeps to small messages (`async.aklang` has `(a.write ..)` for this).
 
 ## Ak vs Python vs C
 Same four benchmarks written in all three (`bench/`; run `bench/run.sh`; needs `gcc`). Seconds, best of 3, one 4-core Linux container, loopback only, Ak 0.6.0, Python 3.13.16, gcc 13.3 `-O2`:

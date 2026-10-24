@@ -9,6 +9,6 @@
     "bench": "bench/run.sh"
   },
   "dependencies": {
-    "aklang": "github:notyourbusinessss/AI-codinglanguage-#84261ebcd86d1ce856bb286b0046521e88648d6c"
+    "aklang": "github:notyourbusinessss/AI-codinglanguage-#6347680a6eb247d6780fa144bff123c1df70f2b5"
   }
 }
