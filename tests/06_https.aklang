@@ -1,4 +1,4 @@
-; HTTPS and TLS 1.3 against a local Node TLS server with a throw-away CA (the only trust root given to Ak): success, big body, wrong name, untrusted CA, TLS 1.2-only server.
+; HTTPS and TLS 1.3 against a local Node TLS server with a throw-away CA (the only trust root given to Ak): success, big body, wrong name, untrusted CA, TLS 1.2-only server (Ak speaks TLS 1.2 as a client since 0.7).
 (use "../ak/lib/http.aklang" as h)
 (use "../ak/lib/pki.aklang" as k)
 (use "t.aklang" as t)
@@ -13,7 +13,7 @@ e=(try (h.get (++ "https://127.0.0.1:" (env "TLS_PORT") "/") nil {:roots roots})
 (t.check "wrong host name is rejected" (has e "does not match"))
 e=(try (h.get (++ ok "/") nil {:roots other}) x=>x)
 (t.check "untrusted CA is rejected" (has e "trusted issuer"))
-e=(try (h.get (++ "https://localhost:" (env "TLS12_PORT") "/") nil {:roots roots}) x=>x)
-(t.check "TLS 1.2-only server is rejected" (has e "tls"))
+r=(h.get (++ "https://localhost:" (env "TLS12_PORT") "/") nil {:roots roots})
+(t.check "TLS 1.2-only server works (TLS 1.2 client, Ak 0.7.0 and later)" (&& r.status==200 r.body=="hello over tls"))
 ; Not tested: an https URL on a plain HTTP port. The handshake has no read timeout (only :ms for connect), so it waits forever for a server that waits for the client: see README.
-(t.done)
+t.done()

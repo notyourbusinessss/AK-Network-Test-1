@@ -1,10 +1,10 @@
-# UDP echo + fake DNS responder for the tests (Ak cannot bind a UDP socket yet, so it cannot be the server).
+# UDP echo + fake DNS responder for the tests (Python on purpose: the clients under test are Ak's).
 # usage: udp_echo.py portfile  -> binds two ephemeral ports on 127.0.0.1, writes "echo_port dns_port" to portfile
 import socket, struct, sys, selectors
 echo = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); echo.bind(("127.0.0.1", 0))
 dns = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); dns.bind(("127.0.0.1", 0))
 open(sys.argv[1], "w").write("%d %d\n" % (echo.getsockname()[1], dns.getsockname()[1]))
-RECORDS = {"one.test": ["192.0.2.1"], "multi.test": ["192.0.2.1", "192.0.2.2", "192.0.2.3"]}
+RECORDS = {"one.test": ["192.0.2.1"], "multi.test": ["192.0.2.1", "192.0.2.2", "192.0.2.3"], "db.lab.test": ["192.0.2.60"]}
 def answer(q):
     i = 12; labels = []
     while q[i]:
